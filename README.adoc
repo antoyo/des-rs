@@ -1,0 +1,34 @@
+= DES
+
+Data Encryption Standard parallel Rust implementation.
+
+The only supported mode is Electronic Codebook (ECB).
+
+== Usage
+
+To use `des`, add this to your `Cargo.toml`:
+
+[source,toml]
+----
+[dependencies]
+des = "0.0.1"
+----
+
+and this to your crate root:
+
+[source,rust]
+----
+extern crate des;
+----
+
+Here's a simple encrypt/decrypt example:
+
+[source,rust]
+----
+use des::{decrypt, encrypt};
+
+let key = [0x13, 0x34, 0x57, 0x79, 0x9B, 0xBC, 0xDF, 0xF1];
+let message = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF];
+let cipher = encrypt(&message, &key);
+let message = decrypt(&cipher, &key);
+----

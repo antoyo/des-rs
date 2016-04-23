@@ -28,7 +28,7 @@ const HALF_KEY_SIZE: i64 = KEY_SIZE / 2;
 const KEY_SIZE: i64 = 56;
 
 /// Do a circular left shift on a width of HALF_KEY_SIZE.
-pub fn circular_left_shift(n1: u64, n2: u64, shift_count: i64) -> (u64, u64) {
+fn circular_left_shift(n1: u64, n2: u64, shift_count: i64) -> (u64, u64) {
     let mut new_value1 = n1;
     let mut new_value2 = n2;
     for _ in 0 .. shift_count {

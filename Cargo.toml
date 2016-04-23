@@ -3,6 +3,8 @@ name = "des"
 description = "Parallel Data Encryption Standard (DES) implementation"
 version = "0.0.1"
 authors = ["Antoni Boucher <bouanto@zoho.com>"]
+license = "GPL-3"
+repository = "https://framagit.org/antoyo/des-rs"
 
 [dependencies]
 crossbeam = "^0.1"
