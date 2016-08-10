@@ -7,6 +7,7 @@ The only supported mode is Electronic Codebook (ECB).
 image:https://img.shields.io/travis/antoyo/des-rs.svg[link="https://travis-ci.org/antoyo/des-rs"]
 image:https://img.shields.io/coveralls/antoyo/des-rs.svg[link="https://coveralls.io/github/antoyo/des-rs"]
 image:https://img.shields.io/crates/v/des.svg[link="https://crates.io/crates/des"]
+image:http://b.repl.ca/v1/rust-documentation-blue.png[link="https://antoyo.github.io/des-rs/des/"]
 image:https://img.shields.io/crates/d/des.svg[link="https://crates.io/crates/des"]
 image:https://img.shields.io/crates/l/des.svg[link="LICENSE"]
 
