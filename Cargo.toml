@@ -7,6 +7,4 @@ license = "MIT"
 repository = "https://framagit.org/antoyo/des-rs"
 
 [dependencies]
-crossbeam = "^0.1"
-num_cpus = "0.2"
-simple_parallel = "0.3"
+rayon = "^0.4"

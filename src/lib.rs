@@ -1,16 +1,16 @@
 /*
  * Copyright (c) 2016 Boucher, Antoni <bouanto@zoho.com>
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy of
  * this software and associated documentation files (the "Software"), to deal in
  * the Software without restriction, including without limitation the rights to
  * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
  * the Software, and to permit persons to whom the Software is furnished to do so,
  * subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
  * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
@@ -19,11 +19,13 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
-extern crate crossbeam;
-extern crate num_cpus;
-extern crate simple_parallel;
+/*
+ * TODO: try byteorder to improve the speed.
+ */
 
-use simple_parallel::Pool;
+extern crate rayon;
+
+use rayon::par_iter::{ExactParallelIterator, IntoParallelRefIterator, ParallelIterator};
 
 pub type Key = [u8; 8];
 
@@ -89,33 +91,30 @@ pub fn decrypt(cipher: &[u8], key: &Key) -> Vec<u8> {
 
 /// Encrypt `message` using `subkeys`.
 fn des(message: &[u8], subkeys: Vec<u64>) -> Vec<u8> {
-    let thread_count = num_cpus::get();
-    let mut pool = Pool::new(thread_count);
     let message = message_to_u64s(message);
-    let chunk_size = (message.len() as f64 / thread_count as f64).ceil() as usize;
 
-    crossbeam::scope(|scope| {
-        pool.map(scope, message.as_slice().chunks(chunk_size), |blocks| {
-            let mut cipher = vec![];
+    let mut blocks = vec![];
 
-            for &block in blocks {
-                let permuted = ip(block);
-                let mut li = permuted & 0xFFFFFFFF00000000;
-                let mut ri = permuted << 32;
+    &message.par_iter().map(|&block| {
+        let permuted = ip(block);
+        let mut li = permuted & 0xFFFFFFFF00000000;
+        let mut ri = permuted << 32;
 
-                for subkey in &subkeys {
-                    let last_li = li;
-                    li = ri;
-                    ri = last_li ^ feistel(ri, *subkey);
-                }
+        for subkey in &subkeys {
+            let last_li = li;
+            li = ri;
+            ri = last_li ^ feistel(ri, *subkey);
+        }
 
-                let r16l16 = ri | (li >> 32);
-                cipher.append(&mut to_u8_vec(fp(r16l16)));
-            }
+        let r16l16 = ri | (li >> 32);
+        to_u8_vec(fp(r16l16))
+    }).collect_into(&mut blocks);
 
-            cipher
-        }).collect::<Vec<_>>()
-    }).concat()
+    let mut result = vec![];
+    for mut block in blocks.into_iter() {
+        result.append(&mut block);
+    }
+    result
 }
 
 /// Encrypt `message` using the `key`.
