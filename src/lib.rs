@@ -19,6 +19,28 @@
  * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
  */
 
+//! Data Encryption Standard parallel Rust implementation.
+//!
+//! The only supported mode is Electronic Codebook (ECB).
+//!
+//! # Example
+//!
+//! ```
+//! extern crate des;
+//!
+//! use des::{decrypt, encrypt};
+//!
+//! let key = [0x13, 0x34, 0x57, 0x79, 0x9B, 0xBC, 0xDF, 0xF1];
+//! let message = [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF];
+//! let cipher = encrypt(&message, &key);
+//! let message = decrypt(&cipher, &key);
+//! ```
+//!
+//! # Usage
+//!
+//! Des exports two functions: encrypt and decrypt.
+//! Use the former to encrypt some data with a key and the later to decrypt the data.
+
 /*
  * TODO: The coveralls badge is not showing.
  * TODO: improve test coverage.
@@ -35,7 +57,7 @@ const FIRST_BIT: u64 = 1 << 63;
 const HALF_KEY_SIZE: i64 = KEY_SIZE / 2;
 const KEY_SIZE: i64 = 56;
 
-/// Do a circular left shift on a width of HALF_KEY_SIZE.
+/// Do a circular left shift on a width of `HALF_KEY_SIZE`.
 fn circular_left_shift(n1: u64, n2: u64, shift_count: i64) -> (u64, u64) {
     let mut new_value1 = n1;
     let mut new_value2 = n2;
