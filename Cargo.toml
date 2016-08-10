@@ -10,5 +10,8 @@ documentation = "https://antoyo.github.io/des-rs/des/"
 [dependencies]
 rayon = "^0.4"
 
+[features]
+nightly = []
+
 [package.metadata.release]
 upload-doc = true
