@@ -20,6 +20,8 @@
  */
 
 /*
+ * TODO: The coveralls badge is not showing.
+ * TODO: improve test coverage.
  * TODO: try byteorder to improve the speed.
  */
 
