@@ -5,6 +5,7 @@ version = "0.0.2-pre"
 authors = ["Antoni Boucher <bouanto@zoho.com>"]
 license = "MIT"
 repository = "https://framagit.org/antoyo/des-rs"
+documentation = "https://antoyo.github.io/des-rs/des/"
 
 [dependencies]
 rayon = "^0.4"
