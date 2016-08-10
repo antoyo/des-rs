@@ -1,7 +1,7 @@
 [package]
 name = "des"
 description = "Parallel Data Encryption Standard (DES) implementation"
-version = "0.0.2"
+version = "0.0.3-pre"
 authors = ["Antoni Boucher <bouanto@zoho.com>"]
 license = "MIT"
 repository = "https://framagit.org/antoyo/des-rs"
