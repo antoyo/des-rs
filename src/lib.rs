@@ -88,22 +88,6 @@ fn compute_subkeys(key: u64) -> Vec<u64> {
     subkeys.iter().map(|&n| { pc2(n) }).collect()
 }
 
-/// Swap bits using the E table.
-fn e(block: u64) -> u64 {
-    let table =
-        [ 32,  1,  2,  3,  4,  5
-        ,  4,  5,  6,  7,  8,  9
-        ,  8,  9, 10, 11, 12, 13
-        , 12, 13, 14, 15, 16, 17
-        , 16, 17, 18, 19, 20, 21
-        , 20, 21, 22, 23, 24, 25
-        , 24, 25, 26, 27, 28, 29
-        , 28, 29, 30, 31, 32,  1
-        ];
-
-    swap_bits(block, &table)
-}
-
 /// Decrypt `message` using the `key`.
 pub fn decrypt(cipher: &[u8], key: &Key) -> Vec<u8> {
     let key = key_to_u64(key);
@@ -112,13 +96,21 @@ pub fn decrypt(cipher: &[u8], key: &Key) -> Vec<u8> {
     des(cipher, subkeys)
 }
 
+/// Swap bits in `a` using a delta swap.
+fn delta_swap(a: u64, delta: u64, mask: u64) -> u64 {
+    let b = (a ^ (a >> delta)) & mask;
+    a ^ b ^ (b << delta)
+}
+
 /// Encrypt `message` using `subkeys`.
 fn des(message: &[u8], subkeys: Vec<u64>) -> Vec<u8> {
+    let message_len = message.len();
     let message = message_to_u64s(message);
 
     let mut blocks = vec![];
 
-    &message.par_iter().map(|&block| {
+    // TODO: use for_each for in-place parallel decompression?
+    message.par_iter().map(|&block| {
         let permuted = ip(block);
         let mut li = permuted & 0xFFFFFFFF00000000;
         let mut ri = permuted << 32;
@@ -133,11 +125,29 @@ fn des(message: &[u8], subkeys: Vec<u64>) -> Vec<u8> {
         to_u8_vec(fp(r16l16))
     }).collect_into(&mut blocks);
 
-    let mut result = vec![];
+    let mut result = Vec::with_capacity(message_len);
     for mut block in blocks.into_iter() {
         result.append(&mut block);
     }
     result
+}
+
+/// Swap bits using the E table.
+fn e(block: u64) -> u64 {
+    const BLOCK_LEN: usize = 32;
+    const RESULT_LEN: usize = 48;
+
+    let b1 = (block << (BLOCK_LEN - 1)) & 0x8000000000000000;
+    let b2 = (block >> 1) & 0x7C00000000000000;
+    let b3 = (block >> 3) & 0x03F0000000000000;
+    let b4 = (block >> 5) & 0x000FC00000000000;
+    let b5 = (block >> 7) & 0x00003F0000000000;
+    let b6 = (block >> 9) & 0x000000FC00000000;
+    let b7 = (block >> 11) & 0x00000003F0000000;
+    let b8 = (block >> 13) & 0x000000000FC00000;
+    let b9 = (block >> 15) & 0x00000000003E0000;
+    let b10 = (block >> (RESULT_LEN - 1)) & 0x0000000000010000;
+    b1 | b2 | b3 | b4 | b5 | b6 | b7 | b8 | b9 | b10
 }
 
 /// Encrypt `message` using the `key`.
@@ -163,20 +173,22 @@ fn feistel(half_block: u64, subkey: u64) -> u64 {
     p(result << 32)
 }
 
+/// Swap bits using the reverse FP table.
+fn fp(message: u64) -> u64 {
+    let message = delta_swap(message, 24, 0x000000FF000000FF);
+    let message = delta_swap(message, 24, 0x00000000FF00FF00);
+    let message = delta_swap(message, 36, 0x000000000F0F0F0F);
+    let message = delta_swap(message, 18, 0x0000333300003333);
+    delta_swap(message, 9, 0x0055005500550055)
+}
+
 /// Swap bits using the IP table.
 fn ip(message: u64) -> u64 {
-    let table =
-        [ 58, 50, 42, 34, 26, 18, 10, 2
-        , 60, 52, 44, 36, 28, 20, 12, 4
-        , 62, 54, 46, 38, 30, 22, 14, 6
-        , 64, 56, 48, 40, 32, 24, 16, 8
-        , 57, 49, 41, 33, 25, 17,  9, 1
-        , 59, 51, 43, 35, 27, 19, 11, 3
-        , 61, 53, 45, 37, 29, 21, 13, 5
-        , 63, 55, 47, 39, 31, 23, 15, 7
-        ];
-
-    swap_bits(message, &table)
+    let message = delta_swap(message, 9, 0x0055005500550055);
+    let message = delta_swap(message, 18, 0x0000333300003333);
+    let message = delta_swap(message, 36, 0x000000000F0F0F0F);
+    let message = delta_swap(message, 24, 0x00000000FF00FF00);
+    delta_swap(message, 24, 0x000000FF000000FF)
 }
 
 /// Convert a `Key` to a 64-bits integer.
@@ -198,71 +210,52 @@ fn message_to_u64s(message: &[u8]) -> Vec<u64> {
 
 /// Swap bits using the P table.
 fn p(block: u64) -> u64 {
-    let table =
-        [ 16,  7, 20, 21
-        , 29, 12, 28, 17
-        ,  1, 15, 23, 26
-        ,  5, 18, 31, 10
-        ,  2,  8, 24, 14
-        , 32, 27,  3,  9
-        , 19, 13, 30,  6
-        , 22, 11,  4, 25
-        ];
-
-    swap_bits(block, &table)
+    let block = block.rotate_left(44);
+    let b1 = (block & 0x0000000000200000) << 32;
+    let b2 = (block & 0x0000000000480000) << 13;
+    let b3 = (block & 0x0000088000000000) << 12;
+    let b4 = (block & 0x0000002020120000) << 25;
+    let b5 = (block & 0x0000000442000000) << 14;
+    let b6 = (block & 0x0000000001800000) << 37;
+    let b7 = (block & 0x0000000004000000) << 24;
+    let b8 = (block & 0x0000020280015000).overflowing_mul(0x0000020080800083).0 & 0x02000a6400000000;
+    let b9 = (block.rotate_left(29) & 0x01001400000000aa).overflowing_mul(0x0000210210008081).0 & 0x0902c01200000000;
+    let b10 = (block & 0x0000000910040000).overflowing_mul(0x0000000c04000020).0 & 0x8410010000000000;
+    b1 | b2 | b3 | b4 | b5 | b6 | b7 | b8 | b9 | b10
 }
 
 /// Swap bits using the PC-1 table.
 fn pc1(key: u64) -> u64 {
-    let table =
-        [ 57, 49, 41, 33, 25, 17,  9
-        ,  1, 58, 50, 42, 34, 26, 18
-        , 10,  2, 59, 51, 43, 35, 27
-        , 19, 11,  3, 60, 52, 44, 36
-        , 63, 55, 47, 39, 31, 23, 15
-        ,  7, 62, 54, 46, 38, 30, 22
-        , 14,  6, 61, 53, 45, 37, 29
-        , 21, 13,  5, 28, 20, 12,  4
-        ];
-
-    swap_bits(key, &table)
+    let key = delta_swap(key, 2, 0x3333000033330000);
+    let key = delta_swap(key, 4, 0x0f0f0f0f00000000);
+    let key = delta_swap(key, 8, 0x009a000a00a200a8);
+    let key = delta_swap(key, 16, 0x00006c6c0000cccc);
+    let key = delta_swap(key, 1, 0x1045500500550550);
+    let key = delta_swap(key, 32, 0x00000000f0f0f5fa);
+    let key = delta_swap(key, 8, 0x00550055006a00aa);
+    let key = delta_swap(key, 2, 0x0000333330000300);
+    key & 0xFFFFFFFFFFFFFF00
 }
 
 /// Swap bits using the PC-2 table.
 fn pc2(key: u64) -> u64 {
-    let table =
-        [ 14, 17, 11, 24,  1,  5
-        ,  3, 28, 15,  6, 21, 10
-        , 23, 19, 12,  4, 26,  8
-        , 16,  7, 27, 20, 13,  2
-        , 41, 52, 31, 37, 47, 55
-        , 30, 40, 51, 45, 33, 48
-        , 44, 49, 39, 56, 34, 53
-        , 46, 42, 50, 36, 29, 32
-        ];
-
-    swap_bits(key, &table)
-}
-
-/// Swap bits using the reverse FP table.
-fn fp(message: u64) -> u64 {
-    let table =
-        [ 40, 8, 48, 16, 56, 24, 64, 32
-        , 39, 7, 47, 15, 55, 23, 63, 31
-        , 38, 6, 46, 14, 54, 22, 62, 30
-        , 37, 5, 45, 13, 53, 21, 61, 29
-        , 36, 4, 44, 12, 52, 20, 60, 28
-        , 35, 3, 43, 11, 51, 19, 59, 27
-        , 34, 2, 42, 10, 50, 18, 58, 26
-        , 33, 1, 41,  9, 49, 17, 57, 25
-        ];
-
-    swap_bits(message, &table)
+    let key = key.rotate_left(61);
+    let b1 = (key & 0x0021000002000000) >> 7;
+    let b2 = (key & 0x0008020010080000) << 1;
+    let b3 = key & 0x0002200000000000;
+    let b4 = (key & 0x0000000000100020) << 19;
+    let b5 = (key.rotate_left(54) & 0x0005312400000011).overflowing_mul(0x0000000094200201).0 & 0xea40100880000000;
+    let b6 = (key.rotate_left(7) & 0x0022110000012001).overflowing_mul(0x0001000000610006).0 & 0x1185004400000000;
+    let b7 = (key.rotate_left(6) & 0x0000520040200002).overflowing_mul(0x00000080000000c1).0 & 0x0028811000200000;
+    let b8 = (key & 0x01000004c0011100).overflowing_mul(0x0000000000004284).0 & 0x0400082244400000;
+    let b9 = (key.rotate_left(60) & 0x0000000000820280).overflowing_mul(0x0000000000089001).0 & 0x0000000110880000;
+    let b10 = (key.rotate_left(49) & 0x0000000000024084).overflowing_mul(0x0000000002040005).0 & 0x000000000a030000;
+    b1 | b2 | b3 | b4 | b5 | b6 | b7 | b8 | b9 | b10
 }
 
 /// Produce 4-bits using an S box.
 fn s(box_id: usize, block: u64) -> u64 {
-    let tables =
+    const TABLES: [[[u64; 16]; 4]; 8] =
         [[[ 14,  4, 13, 1,  2, 15, 11,  8,  3, 10,  6, 12,  5,  9, 0, 7]
         , [  0, 15,  7, 4, 14,  2, 13,  1, 10,  6, 12, 11,  9,  5, 3, 8]
         , [  4,  1, 14, 8, 13,  6,  2, 11, 15, 12,  9,  7,  3, 10, 5, 0]
@@ -305,21 +298,8 @@ fn s(box_id: usize, block: u64) -> u64 {
         ]];
     let i = ((block & 0x20) >> 4 | (block & 1)) as usize;
     let j = ((block & 0x1E) >> 1) as usize;
-    tables[box_id][i][j]
-}
-
-/// Swap bits using a table.
-fn swap_bits(key: u64, table: &[u64]) -> u64 {
-    let mut result = 0;
-    let mut pos = 0;
-
-    for index in table.iter() {
-        let bit = (key << (index - 1)) & FIRST_BIT;
-        result |= bit >> pos;
-        pos += 1;
-    }
-
-    result
+    // TODO: use get_unchecked().
+    TABLES[box_id][i][j]
 }
 
 /// Convert a slice to a `Key`.
