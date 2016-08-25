@@ -40,9 +40,10 @@
 //! Use the former to encrypt some data with a key and the later to decrypt the data.
 
 /*
- * TODO: The coveralls badge is not showing.
+ * TODO: Use a Write parameter (and a Read?) on the encrypt/decrypt functions.
  * TODO: improve test coverage.
  * TODO: try byteorder to improve the speed.
+ * TODO: use JIT to improve performance?
  */
 
 extern crate rayon;
@@ -350,6 +351,38 @@ fn to_u8_vec(num: u64) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::{decrypt, encrypt};
+
+    use super::{e, p, pc1, pc2};
+
+    #[test]
+    fn test_e() {
+        let result = e(0b1111_0000_1010_1010_1111_0000_1010_1010 << 32);
+        assert_eq!(0b011110_100001_010101_010101_011110_100001_010101_010101u64 << 16, result);
+
+        let result = e(0b1111_0000_1010_1010_1111_0000_1010_1011 << 32);
+        assert_eq!(0b111110_100001_010101_010101_011110_100001_010101_010111u64 << 16, result);
+
+        let result = e(0b1111_1111_1111_1111_1111_1111_1111_1111 << 32);
+        assert_eq!(0b111111_111111_111111_111111_111111_111111_111111_111111u64 << 16, result);
+    }
+
+    #[test]
+    fn test_p() {
+        let result = p(0b11110000_01011010_11100111_11000011 << 32);
+        assert_eq!(0b101111101111010101011001011 << 32, result);
+    }
+
+    #[test]
+    fn test_pc1() {
+        let result = pc1(0b00010011_00110100_01010111_01111001_10011011_10111100_11011111_11110001);
+        assert_eq!(0b1111000_0110011_0010101_0101111_0101010_1011001_1001111_0001111 << 8, result);
+    }
+
+    #[test]
+    fn test_pc2() {
+        let result = pc2(0b1110000_1100110_0101010_1011111_1010101_0110011_0011110_0011110 << 8);
+        assert_eq!(0b000110_110000_001011_101111_111111_000111_000001_110010 << 16, result);
+    }
 
     #[test]
     fn test_encrypt_decrypt() {
