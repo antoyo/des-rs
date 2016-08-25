@@ -76,7 +76,7 @@ fn compute_subkeys(key: u64) -> Vec<u64> {
     let mut subkeys = vec![k0];
 
     for shift_count in &table {
-        let last_key = subkeys.last().unwrap().clone();
+        let last_key = *subkeys.last().unwrap();
         let last_ci = last_key & 0xFFFFFFF000000000;
         let last_di = last_key << HALF_KEY_SIZE;
         let (ci, di) = circular_left_shift(last_ci, last_di, *shift_count);
