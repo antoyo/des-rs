@@ -4,7 +4,7 @@ description = "Parallel Data Encryption Standard (DES) implementation"
 version = "0.0.3-pre"
 authors = ["Antoni Boucher <bouanto@zoho.com>"]
 license = "MIT"
-repository = "https://framagit.org/antoyo/des-rs"
+repository = "https://github.com/antoyo/des-rs"
 documentation = "https://antoyo.github.io/des-rs/des/"
 
 [dependencies]
