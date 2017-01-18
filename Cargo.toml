@@ -8,7 +8,7 @@ repository = "https://github.com/antoyo/des-rs"
 documentation = "https://antoyo.github.io/des-rs/des/"
 
 [dependencies]
-rayon = "^0.4"
+rayon = "=0.4.2"
 
 [features]
 nightly = []
