@@ -96,6 +96,25 @@ pub fn decrypt(cipher: &[u8], key: &Key) -> Vec<u8> {
     des(cipher, subkeys)
 }
 
+pub fn decrypt_3des(cipher: &[u8], key: &Key, key2: &Key, key3: &Key) -> Vec<u8> {
+    let key = key_to_u64(key);
+    let mut key1_subkeys = compute_subkeys(key);
+    key1_subkeys.reverse();
+
+    let key2 = key_to_u64(key2);
+    let mut key2_subkeys = compute_subkeys(key2);
+    key2_subkeys.reverse();
+
+    let key3 = key_to_u64(key3);
+    let mut key3_subkeys = compute_subkeys(key3);
+    key3_subkeys.reverse();
+
+    let first_round = des(cipher, key3_subkeys);
+    let second_round = des(&first_round, key2_subkeys);
+    let third_round = des(&second_round, key1_subkeys);
+    third_round
+}
+
 /// Swap bits in `a` using a delta swap.
 fn delta_swap(a: u64, delta: u64, mask: u64) -> u64 {
     let b = (a ^ (a >> delta)) & mask;
@@ -155,6 +174,20 @@ pub fn encrypt(message: &[u8], key: &Key) -> Vec<u8> {
     let key = key_to_u64(key);
     let subkeys = compute_subkeys(key);
     des(message, subkeys)
+}
+
+pub fn encrypt_3des(message: &[u8], key: &Key, key2: &Key, key3: &Key) -> Vec<u8> {
+    let key = key_to_u64(key);
+    let key2 = key_to_u64(key2);
+    let key3 = key_to_u64(key3);
+    let key1_subkeys = compute_subkeys(key);
+    let key2_subkeys = compute_subkeys(key2);
+    let key3_subkeys = compute_subkeys(key3);
+    
+    let first_round = des(message, key1_subkeys);
+    let second_round = des(first_round.as_slice(), key2_subkeys);
+    let third_round = des(second_round.as_slice(), key3_subkeys);
+    third_round
 }
 
 /// Feistel function.
